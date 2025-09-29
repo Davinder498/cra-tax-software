@@ -2,7 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { z } from 'zod';
 
-// Import from source during dev (tsx). If you later run compiled code, switch to package roots.
+// Use source imports for dev (tsx). If you later run compiled code, switch to package roots.
 import { compute } from '@app/calc-engine/src/index';
 import { validateEPS, type Diagnostic } from '@app/validation/src/index';
 import { buildNetfilePayload } from '@app/payload-netfile/src/builder';
@@ -14,7 +14,7 @@ app.use(express.json({ limit: '1mb' }));
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-// Minimal homepage to exercise /compute from the browser
+// ---------- Homepage (HTML) ----------
 app.get('/', (_req, res) => {
   res.type('html').send(`
 <!doctype html>
@@ -34,7 +34,6 @@ app.get('/', (_req, res) => {
       .row { display:flex; flex-direction:column; }
       button { border-radius: 10px; border: 1px solid #8883; cursor: pointer; margin-right: 8px; }
       pre { background: #0b1020; color: #dfe6ff; padding: 12px; overflow:auto; border-radius: 10px; }
-      code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     </style>
   </head>
   <body>
@@ -60,55 +59,69 @@ app.get('/', (_req, res) => {
     <h3>Response</h3>
     <pre id="out">{}</pre>
 
-    <script>
-      function buildBody(rrspOver=false){
-        const prov = document.getElementById('prov').value;
-        return {
-          year: 2025,
-          taxpayer: {
-            sin: document.getElementById('sin').value,
-            firstName: "Alex",
-            lastName: "Doe",
-            dob: "1990-07-15",
-            province: prov,
-            address: {
-              line1: document.getElementById('line1').value,
-              city: document.getElementById('city').value,
-              province: prov,
-              postalCode: document.getElementById('pc').value
-            }
-          },
-          income: { employmentIncome: Number(document.getElementById('inc').value) },
-          rrsp: {
-            deduction: Number(document.getElementById('rrsp').value) + (rrspOver ? 10000 : 0),
-            availableRoom: Number(document.getElementById('room').value)
-          },
-          credits: {},
-          env: { returnsFiledOnThisDevice: 0 },
-          returnType: "STANDARD",
-          residency: "RESIDENT"
-        };
-      }
-
-      async function callCompute(body){
-        const resp = await fetch('/compute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const text = await resp.text();
-        document.getElementById('out').textContent =
-          (resp.status + ' ' + resp.statusText + '\\n\\n') + text;
-      }
-
-      document.getElementById('run').addEventListener('click', ()=>callCompute(buildBody(false)));
-      document.getElementById('bad').addEventListener('click', ()=>callCompute(buildBody(true)));
-    </script>
+    <!-- External script so it works even if inline JS is blocked -->
+    <script src="/app.js" defer></script>
   </body>
 </html>`);
 });
 
-// ===== Zod schema for /compute =====
+// ---------- Frontend JS (served as external file) ----------
+app.get('/app.js', (_req, res) => {
+  res.type('application/javascript').send(`
+// Build request body from form
+function buildBody(rrspOver=false){
+  const prov = document.getElementById('prov').value;
+  return {
+    year: 2025,
+    taxpayer: {
+      sin: document.getElementById('sin').value,
+      firstName: "Alex",
+      lastName: "Doe",
+      dob: "1990-07-15",
+      province: prov,
+      address: {
+        line1: document.getElementById('line1').value,
+        city: document.getElementById('city').value,
+        province: prov,
+        postalCode: document.getElementById('pc').value
+      }
+    },
+    income: { employmentIncome: Number(document.getElementById('inc').value) },
+    rrsp: {
+      deduction: Number(document.getElementById('rrsp').value) + (rrspOver ? 10000 : 0),
+      availableRoom: Number(document.getElementById('room').value)
+    },
+    credits: {},
+    env: { returnsFiledOnThisDevice: 0 },
+    returnType: "STANDARD",
+    residency: "RESIDENT"
+  };
+}
+
+// Call /compute and show result
+async function callCompute(body){
+  try {
+    const resp = await fetch('/compute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const text = await resp.text();
+    document.getElementById('out').textContent =
+      (resp.status + ' ' + resp.statusText + '\\n\\n') + text;
+  } catch (e) {
+    document.getElementById('out').textContent = 'Request failed: ' + (e && e.message ? e.message : e);
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('run').addEventListener('click', () => callCompute(buildBody(false)));
+  document.getElementById('bad').addEventListener('click', () => callCompute(buildBody(true)));
+});
+`);
+});
+
+// ---------- Zod schema ----------
 const inputSchema = z.object({
   year: z.number().optional(),
   taxpayer: z.object({
@@ -141,7 +154,7 @@ const inputSchema = z.object({
   disabilityFirstTimeClaim: z.boolean().optional()
 });
 
-// ===== Routes =====
+// ---------- API routes ----------
 app.post('/compute', (req, res) => {
   const parsed = inputSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
@@ -167,8 +180,8 @@ app.post('/netfile/prepare', (req, res) => {
   res.json({ payload });
 });
 
+// ---------- Boot ----------
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(\`Backend listening on :\${PORT}\`);
+  console.log(`Backend listening on :${PORT}`);
 });
-
