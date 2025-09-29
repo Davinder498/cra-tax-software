@@ -1,0 +1,56 @@
+{
+  "federal": {
+    "brackets": [
+      {
+        "upTo": 55867,
+        "rate": 0.15
+      },
+      {
+        "upTo": 111733,
+        "rate": 0.205
+      },
+      {
+        "upTo": 173205,
+        "rate": 0.26
+      },
+      {
+        "upTo": 246752,
+        "rate": 0.29
+      },
+      {
+        "upTo": null,
+        "rate": 0.33
+      }
+    ],
+    "basicPersonalAmount": 15805
+  },
+  "provincial": {
+    "AB": {
+      "brackets": [
+        {
+          "upTo": 148269,
+          "rate": 0.1
+        },
+        {
+          "upTo": 177922,
+          "rate": 0.12
+        },
+        {
+          "upTo": 237230,
+          "rate": 0.13
+        },
+        {
+          "upTo": 355845,
+          "rate": 0.14
+        },
+        {
+          "upTo": null,
+          "rate": 0.15
+        }
+      ],
+      "basicPersonalAmount": 21756
+    }
+  },
+  "year": 2025,
+  "notes": "Placeholder figures for development only. Replace with official annual tables."
+}
